@@ -1,0 +1,104 @@
+﻿@page "/CustomVisionUploader"
+@inject HttpClient Http
+<h3>Custom Vision Uploader</h3>
+@if (IsLoading)
+{
+    <div class="d-flex justify-content-center">
+        <div class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+}
+<div class="container">
+    <div class="form-group">
+        <input class="form-control" type="text" @bind="@this.SearchTerm" />
+        <button class="btn btn-primary" @onclick="@this.Search">Search</button>
+    </div>
+</div>
+
+@if (this.ImagesSelection != null && this.ImagesSelection.Items != null)
+{
+    <EditForm Model="@this.ImagesSelection" OnValidSubmit="UploadImages">
+        <DataAnnotationsValidator></DataAnnotationsValidator>
+        <ValidationSummary></ValidationSummary>
+        <div class="container">
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Upload Images</button>
+            </div>
+        </div>
+        <div class="container">
+            <div class="form-group">
+                <label>Project Id</label>
+                <InputText class="form-control" @bind-Value="@this.ImagesSelection.ProjectId"></InputText>
+                <label>Tag</label>
+                <InputText class="form-control" @bind-Value="@this.ImagesSelection.Tag"></InputText>
+            </div>
+        </div>
+        <div class="container" style="max-height:450px; overflow:auto">
+            @foreach (var singleSearchResult in this.ImagesSelection.Items)
+            {
+                <div class="card" style="width: 18rem;">
+                    <img class="card-img-top" src="@singleSearchResult.ImageUrl" />
+                    <div class="card-body">
+                        <InputCheckbox @bind-Value="@singleSearchResult.IsSelected"></InputCheckbox>
+                    </div>
+                </div>
+            }
+        </div>
+    </EditForm>
+}
+
+@code {
+    private bool IsLoading { get; set; } = false;
+    private string SearchTerm { get; set; } = null;
+    private List<BlazorCustomVisionUploader.Shared.SearchResultItem> SearchResults { get; set; } = null;
+    private BlazorCustomVisionUploader.Shared.UploadImagesModel ImagesSelection { get; set; } =
+        new BlazorCustomVisionUploader.Shared.UploadImagesModel();
+
+    private async Task Search()
+    {
+        try
+        {
+            this.IsLoading = true;
+            this.SearchResults =
+                await Http.GetFromJsonAsync<List<BlazorCustomVisionUploader.Shared.SearchResultItem>>
+                ($"CustomVisionUploader/Search?searchTerm={this.SearchTerm}");
+            this.ImagesSelection = new BlazorCustomVisionUploader.Shared.UploadImagesModel()
+            {
+                ProjectId = this.ImagesSelection.ProjectId,
+                Items = this.SearchResults.Select(p => new BlazorCustomVisionUploader.Shared.ImageSelectionItem()
+                {
+                    IsSelected = false,
+                    ImageUrl = p.ImageUrl
+                }).ToList()
+            };
+
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
+        finally
+        {
+            this.IsLoading = false;
+        }
+    }
+
+    private async Task UploadImages()
+    {
+        try
+        {
+            this.IsLoading = true;
+            await Http.PostAsJsonAsync<BlazorCustomVisionUploader.Shared.UploadImagesModel>
+                ($"CustomVisionUploader/UploadImages", this.ImagesSelection);
+        }
+        catch (Exception ex)
+        {
+
+        }
+        finally
+        {
+            this.IsLoading = false;
+        }
+    }
+}
